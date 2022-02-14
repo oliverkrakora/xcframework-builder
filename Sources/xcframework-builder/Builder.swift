@@ -4,11 +4,6 @@ import ArgumentParser
 
 struct Builder: ParsableCommand {
     
-    enum Error: Swift.Error {
-        case invalidInput
-        case underlying(command: String, exitCode: Int32)
-    }
-    
     @Flag
     private var verbose: Bool = false
     
