@@ -112,11 +112,18 @@ struct XCFrameworkBuilder: ParsableCommand {
         
         try Xcodebuild.createXCFramework(from: frameworkOutputURLs, outputURL: frameworkOutputURL)
         
+        // Make sure output directory exists
+        try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true, attributes: nil)
+        
+        // Moving xcframeworks to output directory
+        
         let xcframeworkURLs = try FileManager.default.contentsOfDirectory(at: workingDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsSubdirectoryDescendants, .skipsPackageDescendants]).filter { $0.pathExtension == "xcframework" }
 
         for xcframeworkURL in xcframeworkURLs {
             try FileManager.default.moveItem(at: xcframeworkURL, to: outputURL.appendingPathComponent(xcframeworkURL.lastPathComponent))
         }
+        
+        // cleanup
         
         if !isDebug {
             try FileManager.default.removeItem(at: workingDir)
