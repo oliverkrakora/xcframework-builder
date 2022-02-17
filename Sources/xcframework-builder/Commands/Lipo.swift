@@ -1,6 +1,8 @@
 
 import Foundation
 
+#warning("Check if lipo is installed before executing")
+/// a swift wrapper for the lipo command
 struct Lipo {
     
     enum Error: Swift.Error {
@@ -45,7 +47,7 @@ struct Lipo {
         let process = Process.executeCommand(name: Self.commandName, arguments: [binaryPath, "-archs"])
         
         guard process.terminationStatus == 0 else {
-            throw Error.underlying(exitCode: process.terminationStatus, message: process.erroData())
+            throw Error.underlying(exitCode: process.terminationStatus, message: process.errorData())
         }
         
         let output: String? = process.outputData()

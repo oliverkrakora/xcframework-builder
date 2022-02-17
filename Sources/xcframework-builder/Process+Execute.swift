@@ -37,7 +37,7 @@ extension Process {
         return fileHandle.readDataToEndOfFile()
     }
     
-    func erroData() -> String? {
+    func errorData() -> String? {
         errorData().flatMap { return String(data: $0, encoding: .utf8) }
     }
 }
