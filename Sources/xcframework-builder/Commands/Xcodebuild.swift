@@ -7,10 +7,9 @@
 
 import Foundation
 
-#warning("Check if xcodebuild is installed before executing")
 struct Xcodebuild {
     
-    private static let commandName = "xcodebuild"
+    static let commandName = "xcodebuild"
     
     enum Error: Swift.Error {
         case underlying(exitCode: Int32, message: String?)

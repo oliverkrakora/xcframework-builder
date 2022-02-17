@@ -5,6 +5,11 @@ import ArgumentParser
 #warning("improve error handling")
 struct XCFrameworkBuilder: ParsableCommand {
     
+    enum Error: Swift.Error {
+        case commandNotInstalled(commandName: String)
+        case invalidPath
+    }
+    
     static var _commandName: String {
         "xcframework-builder"
     }
@@ -17,17 +22,38 @@ struct XCFrameworkBuilder: ParsableCommand {
     @Flag
     private var deleteInputFileOnSuccess: Bool = false
     
-    @Option
-    private var inputPath: String
+    @Option(name: .customLong("framework-input-path"))
+    private var fileInputURL: URL
     
-    @Option
-    private var outputPath: String
+    @Option(name: .customLong("output-path"))
+    private var outputURL: URL
     
-    mutating func run() throws {        
-        try createXCFramework(for: URL(fileURLWithPath: inputPath))
+    mutating func run() throws {
+        try createXCFramework(for: fileInputURL)
     }
     
     func createXCFramework(for originalFrameworkURL: URL) throws {
+        try createXCFramework(for: originalFrameworkURL, outputURL: outputURL, deleteInputFileOnSuccess: deleteInputFileOnSuccess, isDebug: isDebug)
+    }
+        
+    func createXCFramework(for originalFrameworkURL: URL, outputURL: URL, deleteInputFileOnSuccess: Bool, isDebug: Bool) throws {
+        
+        guard !fileInputURL.pathExtension.isEmpty else {
+            throw Error.invalidPath
+        }
+        
+        guard outputURL.pathExtension.isEmpty else {
+            throw Error.invalidPath
+        }
+                
+        guard Bash.isCommandInstalled(Lipo.commandName) else {
+            throw Error.commandNotInstalled(commandName: Lipo.commandName)
+        }
+        
+        guard Bash.isCommandInstalled(Xcodebuild.commandName) else {
+            throw Error.commandNotInstalled(commandName: Xcodebuild.commandName)
+        }
+        
         //create working dir
         let workingDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: workingDir, withIntermediateDirectories: true, attributes: nil)
@@ -42,12 +68,25 @@ struct XCFrameworkBuilder: ParsableCommand {
         // the file name of the framework bundle
         let frameworkName = originalFrameworkURL.deletingPathExtension().lastPathComponent
         
+        let frameworkOutputURL = workingDir.appendingPathComponent(frameworkName).appendingPathExtension("xcframework")
+        
         // copy framework from originalFrameworkURL to working dir
         try FileManager.default.copyItem(atPath: originalFrameworkURL.path, toPath: frameworkURL.path)
         
-        #warning("handle nested frameworks within provided framework")
+        // the frameworks folder inside the framework
+        let nestedFrameworksURL = frameworkURL.appendingPathComponent("Frameworks")
         
-        let lipo = Lipo(frameworkPath: frameworkURL.path)
+        if FileManager.default.fileExists(atPath: nestedFrameworksURL.path, isDirectory: nil) {
+            let frameworks = try FileManager.default.contentsOfDirectory(at: nestedFrameworksURL, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsPackageDescendants, .skipsSubdirectoryDescendants]).filter { $0.pathExtension == "framework" }
+            
+            for frameworkURL in frameworks {
+                try createXCFramework(for: frameworkURL, outputURL: workingDir, deleteInputFileOnSuccess: false, isDebug: false)
+            }
+            
+            try FileManager.default.removeItem(at: nestedFrameworksURL)
+        }
+                
+        let lipo = Lipo(frameworkURL: frameworkURL)
         
         let architectures = try lipo.availableArchitectures()
         
@@ -71,7 +110,13 @@ struct XCFrameworkBuilder: ParsableCommand {
             try lipo.extractArchitectures(platform.value, to: frameworkCopyURL.appendingPathComponent(frameworkName).path)
         }
         
-        try Xcodebuild.createXCFramework(from: frameworkOutputURLs, outputURL: URL(fileURLWithPath: outputPath))
+        try Xcodebuild.createXCFramework(from: frameworkOutputURLs, outputURL: frameworkOutputURL)
+        
+        let xcframeworkURLs = try FileManager.default.contentsOfDirectory(at: workingDir, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsSubdirectoryDescendants, .skipsPackageDescendants]).filter { $0.pathExtension == "xcframework" }
+
+        for xcframeworkURL in xcframeworkURLs {
+            try FileManager.default.moveItem(at: xcframeworkURL, to: outputURL.appendingPathComponent(xcframeworkURL.lastPathComponent))
+        }
         
         if !isDebug {
             try FileManager.default.removeItem(at: workingDir)

@@ -1,7 +1,6 @@
 
 import Foundation
 
-#warning("Check if lipo is installed before executing")
 /// a swift wrapper for the lipo command
 struct Lipo {
     
@@ -10,41 +9,38 @@ struct Lipo {
         case underlying(exitCode: Int32, message: String?)
     }
     
-    private static let commandName = "lipo"
+    static let commandName = "lipo"
     
-    let frameworkPath: String?
+    let frameworkURL: URL?
     
-    let binaryPath: String
+    let binaryURL: URL
     
-    init(frameworkPath: String) {
-        self.frameworkPath = frameworkPath
+    init(frameworkURL: URL) {
+        self.frameworkURL = frameworkURL
         
         //Path to Mach-O binary
-        self.binaryPath = {
-            let url = URL(fileURLWithPath: frameworkPath)
-            return url.appendingPathComponent(url.deletingPathExtension().lastPathComponent).path
-        }()
+        self.binaryURL = frameworkURL.appendingPathComponent(frameworkURL.deletingPathExtension().lastPathComponent)
     }
     
-    init(binaryPath: String) {
-        self.frameworkPath = nil
-        self.binaryPath = binaryPath
+    init(binaryURL: URL) {
+        self.frameworkURL = nil
+        self.binaryURL = binaryURL
     }
     
     private func validateBinaryPath() throws {
 
-        guard FileManager.default.fileExists(atPath: binaryPath) else {
+        guard FileManager.default.fileExists(atPath: binaryURL.path) else {
             throw Error.invalidInput
         }
         
-        guard Process.executeCommand(name: Self.commandName, arguments: [binaryPath, "-info"]).terminationStatus != 0 else { return }
+        guard Process.executeCommand(name: Self.commandName, arguments: [binaryURL.path, "-info"]).terminationStatus != 0 else { return }
         throw Error.invalidInput
     }
     
     func availableArchitectures() throws -> [Architecture] {
         try validateBinaryPath()
         
-        let process = Process.executeCommand(name: Self.commandName, arguments: [binaryPath, "-archs"])
+        let process = Process.executeCommand(name: Self.commandName, arguments: [binaryURL.path, "-archs"])
         
         guard process.terminationStatus == 0 else {
             throw Error.underlying(exitCode: process.terminationStatus, message: process.errorData())
@@ -61,7 +57,7 @@ struct Lipo {
         try validateBinaryPath()
         
         var arguments: [String] = [
-            binaryPath
+            binaryURL.path
         ]
         
         arguments.append(contentsOf: ["-output", outputPath])
