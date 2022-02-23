@@ -1,1 +1,1 @@
-XCFrameworkBuilder.main()
+Builder.main()

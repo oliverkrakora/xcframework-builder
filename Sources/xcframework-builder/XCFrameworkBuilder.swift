@@ -11,7 +11,7 @@ struct XCFrameworkBuilder: ParsableCommand {
     }
     
     static var _commandName: String {
-        "xcframework-builder"
+        "builder"
     }
     
     /// If set prints out debugging messages and keeps the working directory where the conversion takes place
