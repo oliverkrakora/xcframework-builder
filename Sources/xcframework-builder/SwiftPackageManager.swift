@@ -28,20 +28,23 @@ struct SwiftPackageManager: ParsableCommand {
     @Option
     private var frameworkPath: URL
     
-    @Option
-    private var outputPath: URL
-    
     func run() throws {
         var frameworks = [String]()
+        var outputPath: URL?
         
         if frameworkPath.pathExtension.isEmpty {
-            frameworks = try FileManager.default.contentsOfDirectory(at: frameworkPath,
+            let urls  = try FileManager.default.contentsOfDirectory(at: frameworkPath,
                                                                             includingPropertiesForKeys: [.isDirectoryKey],
                                                                      options: [.skipsPackageDescendants]).filter { $0.pathExtension == "xcframework" }
-                                                                     .map { $0.path }
+                                                                     
+            outputPath = urls.first?.deletingLastPathComponent()
+            frameworks = urls.map { $0.deletingPathExtension().lastPathComponent }
         } else {
+            outputPath = frameworkPath
             frameworks.append(frameworkPath.path)
         }
+        
+        guard var outputPath = outputPath else { return }
         
         let dictionaryLoader = DictionaryLoader(templates: ["spm": StencilTemplates.spm])
         let environment = Environment(loader: dictionaryLoader, extensions: [])
@@ -57,7 +60,9 @@ struct SwiftPackageManager: ParsableCommand {
         
         try FileManager.default.createDirectory(at: outputPath, withIntermediateDirectories: true, attributes: nil)
         
-        let outputPath = outputPath.appendingPathComponent("Package").appendingPathExtension("swift")
+        outputPath = outputPath
+            .appendingPathComponent("Package")
+            .appendingPathExtension("swift")
         
         FileManager.default.createFile(atPath: outputPath.path, contents: manifestData, attributes: nil)
     }

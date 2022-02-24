@@ -17,18 +17,17 @@ enum StencilTemplates {
     let package = Package(
         name: "{{ frameworkName }}",
         products: [
-            // Products define the executables and libraries a package produces, and make them visible to other packages.
             .library(
                 name: "{{ frameworkName }}",
                 targets: [
                     {% for framework in frameworks %}
-                    {{ framework }},
+                    "{{ framework }}",
                     {% endfor %}
                 ])
         ],
         targets: [
             {% for framework in frameworks %}
-            .binaryTarget(name: {{ framework }}, path: "Binaries/{{ framework }}.xcframework"),
+            .binaryTarget(name: "{{ framework }}", path: "{{ framework }}.xcframework"),
             {% endfor %}
         ]
     )
